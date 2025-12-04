@@ -1,1 +1,722 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lumina Loop</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Orbitron', sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.8);
+        }
+
+        .score-box {
+            color: #00f3ff;
+        }
+        
+        .score-label {
+            font-size: 14px;
+            opacity: 0.7;
+            letter-spacing: 2px;
+        }
+
+        .score-val {
+            font-size: 42px;
+            font-weight: 900;
+        }
+
+        .combo-box {
+            text-align: right;
+            color: #ff0055;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        
+        .combo-val {
+            font-size: 36px;
+            font-weight: 900;
+        }
+
+        .combo-label {
+            font-size: 14px;
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 5, 0.85);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            pointer-events: auto;
+            z-index: 100;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 64px;
+            margin: 0;
+            background: linear-gradient(to right, #00f3ff, #ff0055);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            filter: drop-shadow(0 0 20px rgba(0, 243, 255, 0.3));
+            text-align: center;
+            line-height: 1;
+        }
+
+        p.subtitle {
+            font-size: 18px;
+            color: #ccc;
+            margin-bottom: 40px;
+            letter-spacing: 1px;
+            text-align: center;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background: transparent;
+            color: #fff;
+            border: 2px solid #00f3ff;
+            padding: 15px 50px;
+            font-size: 24px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+
+        .btn:hover {
+            background: #00f3ff;
+            color: #000;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.6);
+        }
+
+        .tutorial {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #888;
+            display: flex;
+            gap: 20px;
+        }
+        
+        .tut-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .dot.red { background: #ff0055; box-shadow: 0 0 10px #ff0055; }
+        .dot.blue { background: #00f3ff; box-shadow: 0 0 10px #00f3ff; }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui-layer">
+            <div class="hud-top">
+                <div class="score-box">
+                    <div class="score-label">SCORE</div>
+                    <div class="score-val" id="scoreDisplay">0</div>
+                </div>
+                <div class="combo-box" id="comboDisplay">
+                    <div class="combo-val" id="comboValue">x1</div>
+                    <div class="combo-label">LOOP COMBO</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="startScreen" class="screen">
+            <h1>Lumina Loop</h1>
+            <p class="subtitle">You are the weapon.<br>Create closed loops with your tail to destroy enemies.</p>
+            <button class="btn" onclick="startGame()">Initiate</button>
+            
+            <div class="tutorial">
+                <div class="tut-item"><div class="dot red"></div> <span>Encircle to Kill</span></div>
+                <div class="tut-item"><div class="dot blue"></div> <span>Encircle to Grow</span></div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="screen hidden">
+            <h1 style="font-size: 48px; color: #ff0055; background: none; -webkit-text-fill-color: #ff0055;">SYSTEM FAILURE</h1>
+            <p class="subtitle">Final Score: <span id="finalScore" style="color: white; font-weight: bold;">0</span></p>
+            <button class="btn" onclick="startGame()">Reboot System</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * LUMINA LOOP
+         * A unique arcade game where the player must create closed polygons (loops)
+         * with their trail to destroy enemies inside.
+         */
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize
+        
+        // UI Elements
+        const scoreEl = document.getElementById('scoreDisplay');
+        const comboEl = document.getElementById('comboDisplay');
+        const comboValEl = document.getElementById('comboValue');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const finalScoreEl = document.getElementById('finalScore');
+
+        // Game Constants
+        const PLAYER_SPEED = 4;
+        const TURN_SPEED = 0.12;
+        const SEGMENT_SPACING = 3; // Distance between stored trail points
+        const INITIAL_LENGTH = 80;
+        const GROWTH_PER_ORB = 15;
+        const BASE_ENEMY_SPEED = 1.5;
+        
+        // Game State
+        let isPlaying = false;
+        let score = 0;
+        let frame = 0;
+        let difficultyMultiplier = 1;
+        let animationFrameId = null;
+        
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        
+        // Entities
+        let player = {
+            x: 0, y: 0,
+            angle: 0,
+            trail: [], // Array of {x, y}
+            length: INITIAL_LENGTH,
+            boosting: false,
+            dead: false
+        };
+        
+        let enemies = []; // Red dots
+        let orbs = []; // Blue dots
+        let particles = []; // Visual effects
+        let shockwaves = []; // Loop close effects
+
+        // Input Handling
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+        
+        window.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevent scroll
+            mouseX = e.touches[0].clientX;
+            mouseY = e.touches[0].clientY;
+        }, { passive: false });
+        
+        window.addEventListener('resize', resize);
+        
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resize();
+
+        // --- Core Functions ---
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            // Cancel existing loop if restarting
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+
+            // Reset State
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            player.trail = [];
+            for(let i=0; i<20; i++) {
+                player.trail.push({x: player.x, y: player.y + i*SEGMENT_SPACING});
+            }
+            player.length = INITIAL_LENGTH;
+            player.angle = -Math.PI / 2;
+            player.dead = false;
+            
+            score = 0;
+            scoreEl.innerText = '0';
+            difficultyMultiplier = 1;
+            
+            enemies = [];
+            orbs = [];
+            particles = [];
+            shockwaves = [];
+            
+            isPlaying = true;
+            loop();
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            player.dead = true;
+            
+            // Big explosion at player head
+            createExplosion(player.x, player.y, 50, '#ff0055');
+            screenShake = 20;
+            
+            setTimeout(() => {
+                finalScoreEl.innerText = score;
+                gameOverScreen.classList.remove('hidden');
+            }, 1000);
+        }
+
+        // --- Logic Loop ---
+
+        function loop() {
+            if (!isPlaying && !player.dead) return;
+            
+            update();
+            render();
+            
+            if (isPlaying || particles.length > 0) {
+                animationFrameId = requestAnimationFrame(loop);
+            }
+        }
+
+        let screenShake = 0;
+
+        function update() {
+            frame++;
+            if (screenShake > 0) screenShake *= 0.9;
+            if (screenShake < 0.5) screenShake = 0;
+
+            if (player.dead) {
+                updateParticles();
+                return;
+            }
+
+            // 1. Player Movement (Steer towards mouse)
+            const dx = mouseX - player.x;
+            const dy = mouseY - player.y;
+            const targetAngle = Math.atan2(dy, dx);
+            
+            // Smooth turning
+            let diff = targetAngle - player.angle;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            
+            player.angle += diff * TURN_SPEED;
+            
+            // Move
+            player.x += Math.cos(player.angle) * PLAYER_SPEED;
+            player.y += Math.sin(player.angle) * PLAYER_SPEED;
+            
+            // Boundary checks (Bounce off walls slightly)
+            if (player.x < 0 || player.x > canvas.width || player.y < 0 || player.y > canvas.height) {
+                player.angle += Math.PI; // Turn around
+                player.x = Math.max(0, Math.min(canvas.width, player.x));
+                player.y = Math.max(0, Math.min(canvas.height, player.y));
+            }
+
+            // 2. Trail Management
+            // SAFEGUARD: Ensure trail has at least one point
+            if (player.trail.length === 0) {
+                player.trail.push({x: player.x, y: player.y});
+            }
+
+            // Only add point if moved enough distance
+            const lastPoint = player.trail[0];
+            // Extra check just in case
+            if (!lastPoint) return;
+
+            const dist = Math.hypot(player.x - lastPoint.x, player.y - lastPoint.y);
+            
+            if (dist > SEGMENT_SPACING) {
+                player.trail.unshift({x: player.x, y: player.y});
+                
+                // Cap trail length
+                if (player.trail.length > player.length) {
+                    player.trail.pop();
+                }
+                
+                // 3. Loop Detection (The Core Mechanic)
+                // Check if head collides with trail (ignoring first few segments to prevent instant self-collision)
+                checkLoopClosure();
+            }
+
+            // 4. Spawning
+            // Spawn Orbs (Fuel)
+            if (orbs.length < 5 && Math.random() < 0.02) {
+                spawnEntity(orbs, 'orb');
+            }
+            // Spawn Enemies
+            let maxEnemies = 3 + Math.floor(score / 500);
+            if (enemies.length < maxEnemies && Math.random() < 0.015) {
+                spawnEntity(enemies, 'enemy');
+            }
+
+            // 5. Entity Updates
+            updateEntities();
+            updateParticles();
+            
+            // Difficulty scaling
+            difficultyMultiplier = 1 + (score / 2000);
+        }
+
+        function spawnEntity(arr, type) {
+            const margin = 50;
+            const x = margin + Math.random() * (canvas.width - margin*2);
+            const y = margin + Math.random() * (canvas.height - margin*2);
+            // Don't spawn too close to player
+            if (Math.hypot(x - player.x, y - player.y) < 200) return;
+            
+            arr.push({
+                x: x, 
+                y: y, 
+                vx: (Math.random() - 0.5) * (type === 'enemy' ? BASE_ENEMY_SPEED : 0.5), 
+                vy: (Math.random() - 0.5) * (type === 'enemy' ? BASE_ENEMY_SPEED : 0.5),
+                type: type,
+                radius: type === 'enemy' ? 10 : 6
+            });
+        }
+
+        function updateEntities() {
+            // Orbs
+            orbs.forEach(orb => {
+                orb.x += orb.vx;
+                orb.y += orb.vy;
+                // Bounce walls
+                if(orb.x < 0 || orb.x > canvas.width) orb.vx *= -1;
+                if(orb.y < 0 || orb.y > canvas.height) orb.vy *= -1;
+            });
+
+            // Enemies
+            enemies.forEach(en => {
+                // Seek player slowly
+                const angle = Math.atan2(player.y - en.y, player.x - en.x);
+                en.vx += Math.cos(angle) * 0.05 * difficultyMultiplier;
+                en.vy += Math.sin(angle) * 0.05 * difficultyMultiplier;
+                
+                // Cap speed
+                const speed = Math.hypot(en.vx, en.vy);
+                const maxSpeed = (BASE_ENEMY_SPEED + 1) * difficultyMultiplier;
+                if (speed > maxSpeed) {
+                    en.vx = (en.vx / speed) * maxSpeed;
+                    en.vy = (en.vy / speed) * maxSpeed;
+                }
+
+                en.x += en.vx;
+                en.y += en.vy;
+                
+                // Collision with Player Head (DEATH)
+                const distToHead = Math.hypot(en.x - player.x, en.y - player.y);
+                if (distToHead < en.radius + 5) { // 5 is approx head radius
+                    gameOver();
+                }
+            });
+        }
+
+        function checkLoopClosure() {
+            // We need at least a decent circle
+            if (player.trail.length < 10) return;
+
+            // Check collision with older trail segments
+            // Skip the first 10 segments (too close to head)
+            const head = player.trail[0];
+            
+            for (let i = 15; i < player.trail.length - 1; i++) {
+                const p1 = player.trail[i];
+                const p2 = player.trail[i+1];
+                
+                // Simple distance check first
+                if (Math.hypot(head.x - p1.x, head.y - p1.y) < 10) {
+                    // Loop Closed!
+                    // The polygon is defined by points 0 to i
+                    const polygon = player.trail.slice(0, i + 1);
+                    triggerLoopEffect(polygon, i);
+                    
+                    // Remove these points from trail? 
+                    // To make it harder/strategic, let's CONSUME the trail used for the loop
+                    // This creates a risk: you lose length to kill enemies
+                    
+                    // Create a gap in the trail to prevent immediate re-trigger
+                    player.trail.splice(i-2, 5); 
+                    return; 
+                }
+            }
+        }
+
+        function triggerLoopEffect(polygon, loopIndex) {
+            // Create visual shockwave
+            // Find centroid
+            let cx = 0, cy = 0;
+            polygon.forEach(p => { cx += p.x; cy += p.y; });
+            cx /= polygon.length;
+            cy /= polygon.length;
+
+            shockwaves.push({x: cx, y: cy, r: 1, maxR: 150, alpha: 1});
+            screenShake = 5;
+
+            // Check what is inside the polygon
+            let enemiesKilled = 0;
+            let orbsCollected = 0;
+
+            // Ray casting algo for point in polygon
+            const isInside = (point, vs) => {
+                let x = point.x, y = point.y;
+                let inside = false;
+                for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+                    let xi = vs[i].x, yi = vs[i].y;
+                    let xj = vs[j].x, yj = vs[j].y;
+                    let intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                    if (intersect) inside = !inside;
+                }
+                return inside;
+            };
+
+            // Check Enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                if (isInside(enemies[i], polygon)) {
+                    // KILL
+                    createExplosion(enemies[i].x, enemies[i].y, 20, '#ff0055');
+                    enemies.splice(i, 1);
+                    enemiesKilled++;
+                    score += 100;
+                }
+            }
+
+            // Check Orbs
+            for (let i = orbs.length - 1; i >= 0; i--) {
+                if (isInside(orbs[i], polygon)) {
+                    // COLLECT
+                    createExplosion(orbs[i].x, orbs[i].y, 15, '#00f3ff');
+                    orbs.splice(i, 1);
+                    orbsCollected++;
+                    score += 50;
+                    player.length += GROWTH_PER_ORB;
+                }
+            }
+            
+            // Combo UI
+            if (enemiesKilled > 0) {
+                let comboMult = enemiesKilled > 1 ? enemiesKilled * 2 : 1;
+                score += enemiesKilled * 50 * comboMult;
+                showCombo(enemiesKilled);
+            }
+            
+            scoreEl.innerText = score;
+        }
+
+        function showCombo(count) {
+            comboValEl.innerText = "x" + count;
+            comboEl.style.opacity = 1;
+            comboEl.style.transform = "scale(1.5)";
+            setTimeout(() => {
+                comboEl.style.transform = "scale(1)";
+            }, 100);
+            
+            // Hide after delay
+            clearTimeout(window.comboTimer);
+            window.comboTimer = setTimeout(() => {
+                comboEl.style.opacity = 0;
+            }, 2000);
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+            
+            for (let i = shockwaves.length - 1; i >= 0; i--) {
+                let s = shockwaves[i];
+                s.r += 5;
+                s.alpha -= 0.03;
+                if (s.alpha <= 0) shockwaves.splice(i, 1);
+            }
+        }
+
+        function createExplosion(x, y, count, color) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 2;
+                particles.push({
+                    x: x, y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 1.0,
+                    color: color
+                });
+            }
+        }
+
+        // --- Rendering ---
+
+        function render() {
+            // Screen Shake offset
+            let dx = (Math.random() - 0.5) * screenShake;
+            let dy = (Math.random() - 0.5) * screenShake;
+
+            // Clear with trail effect
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.3)'; // Leaves trails of movement
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(dx, dy);
+
+            // Draw Shockwaves
+            ctx.lineWidth = 3;
+            shockwaves.forEach(s => {
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+                ctx.strokeStyle = `rgba(0, 243, 255, ${s.alpha})`;
+                ctx.stroke();
+            });
+
+            // Draw Player Trail
+            if (player.trail.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(player.trail[0].x, player.trail[0].y);
+                
+                // Draw bezier curve through points for smoothness
+                for (let i = 1; i < player.trail.length - 1; i++) {
+                    const xc = (player.trail[i].x + player.trail[i + 1].x) / 2;
+                    const yc = (player.trail[i].y + player.trail[i + 1].y) / 2;
+                    ctx.quadraticCurveTo(player.trail[i].x, player.trail[i].y, xc, yc);
+                }
+                
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                // Neon Glow
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#00f3ff';
+                ctx.strokeStyle = '#00f3ff';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                
+                // Inner core
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            // Draw Player Head
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#00f3ff';
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 4, 0, Math.PI*2);
+            ctx.fill();
+            
+            // Draw Enemies
+            enemies.forEach(en => {
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ff0055';
+                ctx.fillStyle = '#ff0055';
+                ctx.beginPath();
+                ctx.arc(en.x, en.y, en.radius, 0, Math.PI*2);
+                ctx.fill();
+                
+                // Core
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(en.x, en.y, en.radius/2, 0, Math.PI*2);
+                ctx.fill();
+            });
+            
+            // Draw Orbs
+            orbs.forEach(orb => {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00f3ff';
+                ctx.fillStyle = 'rgba(0, 243, 255, 0.2)';
+                ctx.beginPath();
+                ctx.arc(orb.x, orb.y, orb.radius + Math.sin(frame/10)*2, 0, Math.PI*2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#00f3ff';
+                ctx.beginPath();
+                ctx.arc(orb.x, orb.y, 3, 0, Math.PI*2);
+                ctx.fill();
+            });
+            
+            // Draw Particles
+            particles.forEach(p => {
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, Math.random() * 3 + 1, 0, Math.PI*2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            });
+
+            ctx.restore();
+        }
+
+    </script>
+</body>
+</html>
