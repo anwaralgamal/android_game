@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#050505">
     <title>Lumina Loop</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
@@ -12,8 +15,9 @@
             overflow: hidden;
             background-color: #050505;
             font-family: 'Orbitron', sans-serif;
-            touch-action: none;
+            touch-action: none; /* Critical for mobile game control */
             user-select: none;
+            -webkit-user-select: none;
         }
 
         #game-container {
@@ -46,6 +50,7 @@
             justify-content: space-between;
             align-items: flex-start;
             text-shadow: 0 0 10px rgba(0, 243, 255, 0.8);
+            width: 100%;
         }
 
         .score-box {
@@ -66,7 +71,7 @@
         /* Powerup Indicators */
         .status-box {
             position: absolute;
-            top: 80px;
+            top: 90px;
             left: 20px;
             display: flex;
             flex-direction: column;
@@ -102,10 +107,43 @@
             font-size: 14px;
         }
 
+        /* Mobile Boost Button */
+        #boost-btn-container {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            pointer-events: auto; /* Enable clicks */
+            z-index: 50;
+        }
+
+        #boost-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(0, 243, 255, 0.1);
+            border: 2px solid rgba(0, 243, 255, 0.5);
+            color: rgba(0, 243, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            transition: all 0.1s;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #boost-btn.active {
+            background: rgba(0, 243, 255, 0.4);
+            transform: scale(0.95);
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.6);
+        }
+
         /* Tutorial Message Overlay */
         #tutorial-msg {
             position: absolute;
-            top: 20%;
+            top: 25%;
             width: 100%;
             text-align: center;
             color: #fff;
@@ -116,6 +154,8 @@
             opacity: 0;
             transition: opacity 0.5s;
             pointer-events: none;
+            padding: 0 20px;
+            box-sizing: border-box;
         }
         
         #tutorial-msg.active {
@@ -139,6 +179,9 @@
             pointer-events: auto;
             z-index: 100;
             transition: opacity 0.3s;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
         }
 
         .hidden {
@@ -147,7 +190,7 @@
         }
 
         h1 {
-            font-size: 64px;
+            font-size: clamp(32px, 8vw, 64px); /* Responsive font size */
             margin: 0;
             background: linear-gradient(to right, #00f3ff, #ff0055);
             -webkit-background-clip: text;
@@ -156,13 +199,13 @@
             letter-spacing: 5px;
             filter: drop-shadow(0 0 20px rgba(0, 243, 255, 0.3));
             text-align: center;
-            line-height: 1;
+            line-height: 1.2;
         }
 
         p.subtitle {
-            font-size: 18px;
+            font-size: 16px;
             color: #ccc;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             letter-spacing: 1px;
             text-align: center;
             max-width: 600px;
@@ -173,8 +216,8 @@
             background: transparent;
             color: #fff;
             border: 2px solid #00f3ff;
-            padding: 15px 50px;
-            font-size: 24px;
+            padding: 15px 40px;
+            font-size: 20px;
             font-family: 'Orbitron', sans-serif;
             font-weight: 700;
             cursor: pointer;
@@ -184,6 +227,7 @@
             overflow: hidden;
             transition: all 0.3s;
             box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            margin-bottom: 15px;
         }
 
         .btn:hover {
@@ -194,9 +238,9 @@
         
         .btn.secondary {
             border-color: #555;
-            font-size: 16px;
-            padding: 10px 30px;
-            margin-top: 10px;
+            font-size: 14px;
+            padding: 10px 25px;
+            margin-top: 5px;
         }
         .btn.secondary:hover {
             background: #555;
@@ -211,7 +255,7 @@
             font-size: 12px;
             color: #aaa;
         }
-        .tut-item { display: flex; align-items: center; gap: 8px; }
+        .tut-item { display: flex; align-items: center; gap: 8px; justify-content: center;}
         .dot { width: 10px; height: 10px; border-radius: 50%; }
 
     </style>
@@ -239,12 +283,17 @@
             <div class="status-box">
                 <div id="status-shield" class="status-item">
                     <div class="status-icon" style="background: #f1c40f; box-shadow: 0 0 10px #f1c40f;">S</div>
-                    <span>SHIELD ACTIVE</span>
+                    <span>SHIELD</span>
                 </div>
                 <div id="status-magnet" class="status-item">
                     <div class="status-icon" style="background: #9b59b6; box-shadow: 0 0 10px #9b59b6;">M</div>
-                    <span>MAGNET ACTIVE</span>
+                    <span>MAGNET</span>
                 </div>
+            </div>
+
+            <!-- Mobile Boost Button -->
+            <div id="boost-btn-container">
+                <div id="boost-btn">BOOST</div>
             </div>
         </div>
 
@@ -258,7 +307,7 @@
             <div class="tutorial">
                 <div class="tut-item"><div class="dot" style="background:#ff0055"></div> Kill (Loop)</div>
                 <div class="tut-item"><div class="dot" style="background:#00f3ff"></div> Grow (Loop)</div>
-                <div class="tut-item" style="color:#f1c40f">Hold Click to Boost</div>
+                <div class="tut-item" style="color:#f1c40f">Hold Button to Boost</div>
                 <div class="tut-item" style="color:#e67e22">Avoid Dashers</div>
             </div>
         </div>
@@ -273,11 +322,10 @@
 
     <script>
         /**
-         * LUMINA LOOP v2.0
-         * - Added Boost
-         * - Added Powerups (Shield, Magnet)
-         * - Added Dasher Enemy
-         * - Enhanced Visuals
+         * LUMINA LOOP v2.1 - Mobile Update
+         * - Added on-screen boost button
+         * - Multitouch separation for steering/boosting
+         * - Mobile meta tags and CSS fixes
          */
 
         const canvas = document.getElementById('gameCanvas');
@@ -293,6 +341,7 @@
         const tutorialMsgEl = document.getElementById('tutorial-msg');
         const statusShield = document.getElementById('status-shield');
         const statusMagnet = document.getElementById('status-magnet');
+        const boostBtn = document.getElementById('boost-btn');
 
         // Game Constants
         const PLAYER_SPEED = 4;
@@ -317,7 +366,7 @@
 
         let mouseX = window.innerWidth / 2;
         let mouseY = window.innerHeight / 2;
-        let isBoosting = false; // Input state
+        let isBoosting = false; 
         
         // Entities
         let player = {
@@ -326,41 +375,82 @@
             trail: [], 
             length: INITIAL_LENGTH,
             dead: false,
-            // Powerup states
             shield: false,
             magnetTimer: 0
         };
         
         let enemies = []; 
         let orbs = [];
-        let powerups = []; // New entity type
+        let powerups = []; 
         let particles = [];
         let shockwaves = [];
 
-        // Input Handling
+        // --- Input Handling ---
+
+        // Desktop Mouse
         window.addEventListener('mousemove', (e) => {
             mouseX = e.clientX;
             mouseY = e.clientY;
         });
         
-        // Boost Input
-        window.addEventListener('mousedown', () => isBoosting = true);
+        window.addEventListener('mousedown', (e) => {
+            if (e.target.id !== 'boost-btn') isBoosting = true;
+        });
         window.addEventListener('mouseup', () => isBoosting = false);
 
-        window.addEventListener('touchstart', (e) => {
-            // e.preventDefault(); // Sometimes prevents clicking buttons
-            isBoosting = true;
-            mouseX = e.touches[0].clientX;
-            mouseY = e.touches[0].clientY;
-        }, { passive: false });
-
+        // Mobile Touch (Steering)
         window.addEventListener('touchmove', (e) => {
             e.preventDefault(); 
-            mouseX = e.touches[0].clientX;
-            mouseY = e.touches[0].clientY;
+            // Iterate touches to find one NOT on the button (steering)
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                // Simple check: if touch is not in the bottom right corner (where button is)
+                // or check target. But target might be canvas if started elsewhere.
+                // Let's rely on event.target for the button separation
+                if (touch.target.id !== 'boost-btn') {
+                    mouseX = touch.clientX;
+                    mouseY = touch.clientY;
+                }
+            }
         }, { passive: false });
 
-        window.addEventListener('touchend', () => isBoosting = false);
+        window.addEventListener('touchstart', (e) => {
+             // Initial steer position
+             for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                if (touch.target.id !== 'boost-btn') {
+                    mouseX = touch.clientX;
+                    mouseY = touch.clientY;
+                }
+            }
+        }, { passive: false });
+
+        // Mobile Boost Button Logic
+        boostBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Don't trigger canvas touch
+            isBoosting = true;
+            boostBtn.classList.add('active');
+        });
+
+        boostBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            isBoosting = false;
+            boostBtn.classList.remove('active');
+        });
+
+        // Also handle mouse for testing on desktop
+        boostBtn.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            isBoosting = true;
+            boostBtn.classList.add('active');
+        });
+        boostBtn.addEventListener('mouseup', (e) => {
+            e.stopPropagation();
+            isBoosting = false;
+            boostBtn.classList.remove('active');
+        });
         
         window.addEventListener('resize', resize);
         function resize() {
@@ -408,7 +498,7 @@
             tutorialStep = 0;
             tutorialCheck = 0;
             
-            if (isTutorial) setTutorialMsg("MOVE TO STEER");
+            if (isTutorial) setTutorialMsg("TOUCH & DRAG TO STEER");
             else setTutorialMsg("");
 
             isPlaying = true;
@@ -637,14 +727,8 @@
                 
                 // Magnet Collection (Head only)
                 if (Math.hypot(orb.x - player.x, orb.y - player.y) < 20) {
-                    // Just visual, doesn't collect here, usually need loop. 
-                    // But magnet implies easier collection? 
-                    // Let's keep logic: Magnet pulls them into LOOP range or body?
-                    // Let's make Magnet actually COLLECT on contact for fun.
                     if (player.magnetTimer > 0) {
                         createExplosion(orb.x, orb.y, 10, '#00f3ff');
-                        // Remove is tricky inside forEach, mark for delete?
-                        // Let's leave standard loop collection for skill, but magnet brings them CLOSE.
                     }
                 }
             });
