@@ -322,10 +322,11 @@
 
     <script>
         /**
-         * LUMINA LOOP v2.1 - Mobile Update
-         * - Added on-screen boost button
-         * - Multitouch separation for steering/boosting
-         * - Mobile meta tags and CSS fixes
+         * LUMINA LOOP v2.2 - Performance Optimization
+         * - Removed shadowBlur (Too expensive for mobile)
+         * - Implemented additive blending (Lighter) for neon effect
+         * - Optimized particles (fillRect instead of arc)
+         * - Capped resolution for consistent framerate
          */
 
         const canvas = document.getElementById('gameCanvas');
@@ -401,12 +402,8 @@
         // Mobile Touch (Steering)
         window.addEventListener('touchmove', (e) => {
             e.preventDefault(); 
-            // Iterate touches to find one NOT on the button (steering)
             for (let i = 0; i < e.touches.length; i++) {
                 const touch = e.touches[i];
-                // Simple check: if touch is not in the bottom right corner (where button is)
-                // or check target. But target might be canvas if started elsewhere.
-                // Let's rely on event.target for the button separation
                 if (touch.target.id !== 'boost-btn') {
                     mouseX = touch.clientX;
                     mouseY = touch.clientY;
@@ -415,7 +412,6 @@
         }, { passive: false });
 
         window.addEventListener('touchstart', (e) => {
-             // Initial steer position
              for (let i = 0; i < e.touches.length; i++) {
                 const touch = e.touches[i];
                 if (touch.target.id !== 'boost-btn') {
@@ -428,7 +424,7 @@
         // Mobile Boost Button Logic
         boostBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            e.stopPropagation(); // Don't trigger canvas touch
+            e.stopPropagation(); 
             isBoosting = true;
             boostBtn.classList.add('active');
         });
@@ -454,6 +450,8 @@
         
         window.addEventListener('resize', resize);
         function resize() {
+            // Avoid using devicePixelRatio on mobile for performance
+            // Just use CSS pixels 1:1
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
@@ -525,7 +523,7 @@
             isPlaying = false;
             player.dead = true;
             setTutorialMsg("");
-            createExplosion(player.x, player.y, 50, '#ff0055');
+            createExplosion(player.x, player.y, 30, '#ff0055'); // Reduced particle count
             screenShake = 20;
             setTimeout(() => {
                 finalScoreEl.innerText = score;
@@ -577,13 +575,13 @@
                 currentSpeed = BOOST_SPEED;
                 player.length -= 0.3; // Cost of boosting
                 
-                // Boost particles
-                if (frame % 3 === 0) {
+                // Boost particles - Reduced frequency
+                if (frame % 5 === 0) {
                     particles.push({
                         x: player.x, y: player.y,
                         vx: -Math.cos(player.angle) * 2 + (Math.random()-0.5),
                         vy: -Math.sin(player.angle) * 2 + (Math.random()-0.5),
-                        life: 0.5, color: '#00f3ff'
+                        life: 0.5, color: '#00f3ff', size: 3
                     });
                 }
             }
@@ -691,10 +689,10 @@
                 if (Math.hypot(p.x - player.x, p.y - player.y) < p.radius + 10) {
                     if (p.type === 'shield') {
                         player.shield = true;
-                        createExplosion(p.x, p.y, 20, '#f1c40f');
+                        createExplosion(p.x, p.y, 15, '#f1c40f');
                     } else if (p.type === 'magnet') {
                         player.magnetTimer = 600; // 10 seconds approx
-                        createExplosion(p.x, p.y, 20, '#9b59b6');
+                        createExplosion(p.x, p.y, 15, '#9b59b6');
                     }
                     updateStatusUI();
                     powerups.splice(i, 1);
@@ -728,7 +726,7 @@
                 // Magnet Collection (Head only)
                 if (Math.hypot(orb.x - player.x, orb.y - player.y) < 20) {
                     if (player.magnetTimer > 0) {
-                        createExplosion(orb.x, orb.y, 10, '#00f3ff');
+                        createExplosion(orb.x, orb.y, 5, '#00f3ff');
                     }
                 }
             });
@@ -781,7 +779,7 @@
                         
                         // Trail
                         if (frame % 4 === 0) {
-                            particles.push({x:en.x, y:en.y, vx:0, vy:0, life:0.3, color:'#e67e22'});
+                            particles.push({x:en.x, y:en.y, vx:0, vy:0, life:0.3, color:'#e67e22', size: 3});
                         }
 
                         if (en.timer <= 0) {
@@ -802,7 +800,7 @@
                         // Shield Break
                         player.shield = false;
                         updateStatusUI();
-                        createExplosion(player.x, player.y, 30, '#f1c40f');
+                        createExplosion(player.x, player.y, 20, '#f1c40f');
                         screenShake = 10;
                         // Push enemy away
                         let ang = Math.atan2(en.y - player.y, en.x - player.x);
@@ -862,7 +860,7 @@
             // Reverse loop for safe removal
             for (let i = enemies.length - 1; i >= 0; i--) {
                 if (isInside(enemies[i], polygon)) {
-                    createExplosion(enemies[i].x, enemies[i].y, 20, enemies[i].type === 'dasher' ? '#e67e22' : '#ff0055');
+                    createExplosion(enemies[i].x, enemies[i].y, 15, enemies[i].type === 'dasher' ? '#e67e22' : '#ff0055'); // Reduced particles
                     enemies.splice(i, 1);
                     enemiesKilled++;
                     score += 100;
@@ -880,7 +878,7 @@
 
             for (let i = orbs.length - 1; i >= 0; i--) {
                 if (isInside(orbs[i], polygon)) {
-                    createExplosion(orbs[i].x, orbs[i].y, 15, '#00f3ff');
+                    createExplosion(orbs[i].x, orbs[i].y, 8, '#00f3ff'); // Reduced
                     orbs.splice(i, 1);
                     score += 50;
                     player.length += GROWTH_PER_ORB;
@@ -894,7 +892,7 @@
                     if (p.type === 'shield') player.shield = true;
                     if (p.type === 'magnet') player.magnetTimer = 600;
                     updateStatusUI();
-                    createExplosion(p.x, p.y, 20, '#fff');
+                    createExplosion(p.x, p.y, 10, '#fff');
                     powerups.splice(i, 1);
                 }
             }
@@ -921,19 +919,23 @@
                 let p = particles[i];
                 p.x += p.vx;
                 p.y += p.vy;
-                p.life -= 0.02;
+                p.life -= 0.03; // Die faster
                 if (p.life <= 0) particles.splice(i, 1);
             }
             for (let i = shockwaves.length - 1; i >= 0; i--) {
                 let s = shockwaves[i];
                 s.r += 5;
-                s.alpha -= 0.03;
+                s.alpha -= 0.05; // Fade faster
                 if (s.alpha <= 0) shockwaves.splice(i, 1);
             }
         }
 
         function createExplosion(x, y, count, color) {
-            for (let i = 0; i < count; i++) {
+            // Cap particle count
+            const limit = 20;
+            const actualCount = Math.min(count, limit);
+            
+            for (let i = 0; i < actualCount; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = Math.random() * 5 + 2;
                 particles.push({
@@ -941,7 +943,8 @@
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
                     life: 1.0,
-                    color: color
+                    color: color,
+                    size: Math.random() * 3 + 1
                 });
             }
         }
@@ -949,7 +952,7 @@
         // --- Rendering ---
 
         function drawGrid(offsetX, offsetY) {
-            ctx.strokeStyle = 'rgba(0, 243, 255, 0.05)';
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)'; // Slightly brighter since no glow
             ctx.lineWidth = 1;
             const gridSize = 50;
             const w = canvas.width;
@@ -973,9 +976,12 @@
             let dx = (Math.random() - 0.5) * screenShake;
             let dy = (Math.random() - 0.5) * screenShake;
 
-            ctx.fillStyle = 'rgba(5, 5, 5, 0.3)';
+            ctx.fillStyle = '#050505'; // No transparency for better performance, clean clear
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            // Use additive blending for "Neon" look without expensive shadows
+            ctx.globalCompositeOperation = 'lighter';
+
             drawGrid(player.x, player.y);
 
             ctx.save();
@@ -1001,20 +1007,17 @@
                 }
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
-                ctx.shadowBlur = isBoosting ? 25 : 15;
-                ctx.shadowColor = '#00f3ff';
-                ctx.strokeStyle = '#00f3ff';
+                ctx.strokeStyle = isBoosting ? '#00ffff' : '#00aaff';
                 ctx.lineWidth = isBoosting ? 6 : 4;
                 ctx.stroke();
-                ctx.shadowBlur = 0;
+                
+                // Core (re-draw for brightness)
                 ctx.strokeStyle = '#ffffff';
                 ctx.lineWidth = 2;
                 ctx.stroke();
             }
             
             // Player Head
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = '#00f3ff';
             ctx.fillStyle = '#fff';
             ctx.beginPath();
             ctx.arc(player.x, player.y, 4, 0, Math.PI*2);
@@ -1023,8 +1026,6 @@
             // Shield Visual
             if (player.shield) {
                 ctx.strokeStyle = '#f1c40f';
-                ctx.shadowColor = '#f1c40f';
-                ctx.shadowBlur = 10;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.arc(player.x, player.y, 12 + Math.sin(frame/5)*2, 0, Math.PI*2);
@@ -1033,10 +1034,8 @@
 
             // Powerups
             powerups.forEach(p => {
-                ctx.shadowBlur = 15;
                 let color = p.type === 'shield' ? '#f1c40f' : '#9b59b6';
                 let label = p.type === 'shield' ? 'S' : 'M';
-                ctx.shadowColor = color;
                 ctx.fillStyle = color;
                 
                 let py = p.y + Math.sin(frame/10 + p.wobble)*3;
@@ -1045,7 +1044,7 @@
                 ctx.arc(p.x, py, p.radius, 0, Math.PI*2);
                 ctx.fill();
                 
-                ctx.fillStyle = '#000';
+                ctx.fillStyle = '#fff';
                 ctx.font = 'bold 16px Orbitron';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -1057,14 +1056,13 @@
                 let color = '#ff0055';
                 if (en.type === 'dasher') color = '#e67e22';
 
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = color;
                 ctx.fillStyle = color;
                 
                 if (en.type === 'enemy') {
                     ctx.beginPath();
                     ctx.arc(en.x, en.y, en.radius, 0, Math.PI*2);
                     ctx.fill();
+                    // Core
                     ctx.fillStyle = '#fff';
                     ctx.beginPath();
                     ctx.arc(en.x, en.y, en.radius/2, 0, Math.PI*2);
@@ -1094,9 +1092,7 @@
             
             // Orbs
             orbs.forEach(orb => {
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = '#00f3ff';
-                ctx.fillStyle = 'rgba(0, 243, 255, 0.2)';
+                ctx.fillStyle = 'rgba(0, 243, 255, 0.4)';
                 ctx.beginPath();
                 ctx.arc(orb.x, orb.y, orb.radius + Math.sin(frame/10)*2, 0, Math.PI*2);
                 ctx.fill();
@@ -1106,19 +1102,19 @@
                 ctx.fill();
             });
             
-            // Particles
+            // Particles (Optimized: Rects instead of Arcs)
             particles.forEach(p => {
-                ctx.shadowBlur = 5;
-                ctx.shadowColor = p.color;
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, Math.random() * 3 + 1, 0, Math.PI*2);
-                ctx.fill();
+                // Faster than arc
+                ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
                 ctx.globalAlpha = 1;
             });
 
             ctx.restore();
+            
+            // Reset composite for UI
+            ctx.globalCompositeOperation = 'source-over';
         }
     </script>
 </body>
