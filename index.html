@@ -28,6 +28,8 @@
 
         canvas {
             display: block;
+            width: 100%;
+            height: 100%;
         }
 
         /* UI Overlay */
@@ -322,11 +324,11 @@
 
     <script>
         /**
-         * LUMINA LOOP v2.2 - Performance Optimization
-         * - Removed shadowBlur (Too expensive for mobile)
-         * - Implemented additive blending (Lighter) for neon effect
-         * - Optimized particles (fillRect instead of arc)
-         * - Capped resolution for consistent framerate
+         * LUMINA LOOP v2.3 - High Performance Mobile
+         * - Resolution Scaling: Limits internal canvas size to 720px max dimension
+         * - Input Scaling: Adjusts touch coordinates to match internal resolution
+         * - Reduced Draw Calls: Simplified Grid
+         * - Optimized Particles: Hard limit on count and size
          */
 
         const canvas = document.getElementById('gameCanvas');
@@ -359,14 +361,15 @@
         let frame = 0;
         let difficultyMultiplier = 1;
         let animationFrameId = null;
+        let gameScale = 1; // For input coordinate mapping
         
         // Tutorial State
         let isTutorial = false;
         let tutorialStep = 0; 
         let tutorialCheck = 0; 
 
-        let mouseX = window.innerWidth / 2;
-        let mouseY = window.innerHeight / 2;
+        let mouseX = 0;
+        let mouseY = 0;
         let isBoosting = false; 
         
         // Entities
@@ -388,10 +391,19 @@
 
         // --- Input Handling ---
 
+        // Helper to get scaled coordinates
+        function getScaledPos(clientX, clientY) {
+            return {
+                x: clientX * gameScale,
+                y: clientY * gameScale
+            };
+        }
+
         // Desktop Mouse
         window.addEventListener('mousemove', (e) => {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
+            const pos = getScaledPos(e.clientX, e.clientY);
+            mouseX = pos.x;
+            mouseY = pos.y;
         });
         
         window.addEventListener('mousedown', (e) => {
@@ -405,8 +417,9 @@
             for (let i = 0; i < e.touches.length; i++) {
                 const touch = e.touches[i];
                 if (touch.target.id !== 'boost-btn') {
-                    mouseX = touch.clientX;
-                    mouseY = touch.clientY;
+                    const pos = getScaledPos(touch.clientX, touch.clientY);
+                    mouseX = pos.x;
+                    mouseY = pos.y;
                 }
             }
         }, { passive: false });
@@ -415,8 +428,9 @@
              for (let i = 0; i < e.touches.length; i++) {
                 const touch = e.touches[i];
                 if (touch.target.id !== 'boost-btn') {
-                    mouseX = touch.clientX;
-                    mouseY = touch.clientY;
+                    const pos = getScaledPos(touch.clientX, touch.clientY);
+                    mouseX = pos.x;
+                    mouseY = pos.y;
                 }
             }
         }, { passive: false });
@@ -436,7 +450,6 @@
             boostBtn.classList.remove('active');
         });
 
-        // Also handle mouse for testing on desktop
         boostBtn.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             isBoosting = true;
@@ -449,11 +462,29 @@
         });
         
         window.addEventListener('resize', resize);
+        
         function resize() {
-            // Avoid using devicePixelRatio on mobile for performance
-            // Just use CSS pixels 1:1
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            // PERFORMANCE FIX: Cap resolution
+            // Mobile screens have high pixel density. 
+            // Rendering at full 3000x1500 resolution is wasteful for this art style.
+            const TARGET_MAX_DIM = 800; 
+            const windowW = window.innerWidth;
+            const windowH = window.innerHeight;
+            
+            // Determine scale factor needed to fit window into target dim
+            const currentMax = Math.max(windowW, windowH);
+            const scaleFactor = Math.min(1, TARGET_MAX_DIM / currentMax);
+            
+            // Set internal canvas buffer size (smaller)
+            canvas.width = windowW * scaleFactor;
+            canvas.height = windowH * scaleFactor;
+            
+            // Store scale for input mapping (Mouse 100px -> Canvas 50px if scale is 0.5)
+            gameScale = scaleFactor;
+
+            // Recenter mouse if needed
+            mouseX = (windowW / 2) * gameScale;
+            mouseY = (windowH / 2) * gameScale;
         }
         resize();
 
@@ -523,7 +554,7 @@
             isPlaying = false;
             player.dead = true;
             setTutorialMsg("");
-            createExplosion(player.x, player.y, 30, '#ff0055'); // Reduced particle count
+            createExplosion(player.x, player.y, 15, '#ff0055'); // Low particle count
             screenShake = 20;
             setTimeout(() => {
                 finalScoreEl.innerText = score;
@@ -571,12 +602,12 @@
             
             // Boost Mechanics
             let currentSpeed = PLAYER_SPEED;
-            if (isBoosting && player.length > 20) { // Can only boost if have length
+            if (isBoosting && player.length > 20) { 
                 currentSpeed = BOOST_SPEED;
-                player.length -= 0.3; // Cost of boosting
+                player.length -= 0.3; 
                 
-                // Boost particles - Reduced frequency
-                if (frame % 5 === 0) {
+                // Boost particles - Very low frequency for performance
+                if (frame % 8 === 0) {
                     particles.push({
                         x: player.x, y: player.y,
                         vx: -Math.cos(player.angle) * 2 + (Math.random()-0.5),
@@ -621,16 +652,11 @@
 
             // 3. Spawning
             if (!isTutorial) {
-                // Spawn Orbs
                 if (orbs.length < 6 && Math.random() < 0.02) spawnEntity(orbs, 'orb');
-                
-                // Spawn Powerups (Rare)
                 if (powerups.length < 2 && Math.random() < 0.002) {
                     let type = Math.random() < 0.5 ? 'shield' : 'magnet';
                     spawnEntity(powerups, type);
                 }
-
-                // Spawn Enemies
                 let maxEnemies = 2 + Math.floor(score / 800); 
                 if (enemies.length < maxEnemies && Math.random() < 0.012) {
                     let type = (score > 500 && Math.random() < 0.3) ? 'dasher' : 'enemy';
@@ -663,7 +689,7 @@
             } else if (type === 'dasher') {
                 ent.vx = 0; ent.vy = 0;
                 ent.radius = 12;
-                ent.state = 0; // 0: Idle, 1: Charge, 2: Dash, 3: Cooldown
+                ent.state = 0; 
                 ent.timer = 100;
                 ent.angle = 0;
             } else if (type === 'orb') {
@@ -684,15 +710,13 @@
             for (let i = powerups.length - 1; i >= 0; i--) {
                 let p = powerups[i];
                 p.wobble += 0.05;
-                
-                // Check collision
                 if (Math.hypot(p.x - player.x, p.y - player.y) < p.radius + 10) {
                     if (p.type === 'shield') {
                         player.shield = true;
-                        createExplosion(p.x, p.y, 15, '#f1c40f');
+                        createExplosion(p.x, p.y, 10, '#f1c40f');
                     } else if (p.type === 'magnet') {
-                        player.magnetTimer = 600; // 10 seconds approx
-                        createExplosion(p.x, p.y, 15, '#9b59b6');
+                        player.magnetTimer = 600; 
+                        createExplosion(p.x, p.y, 10, '#9b59b6');
                     }
                     updateStatusUI();
                     powerups.splice(i, 1);
@@ -701,12 +725,10 @@
 
             // Orbs
             orbs.forEach(orb => {
-                // Magnet Effect
                 if (player.magnetTimer > 0) {
                     let angle = Math.atan2(player.y - orb.y, player.x - orb.x);
                     orb.vx += Math.cos(angle) * 0.5;
                     orb.vy += Math.sin(angle) * 0.5;
-                    // Cap speed
                     let s = Math.hypot(orb.vx, orb.vy);
                     if (s > 8) { orb.vx *= 0.9; orb.vy *= 0.9; }
                 } else {
@@ -714,7 +736,6 @@
                     orb.y += orb.vy;
                 }
                 
-                // Normal Movement application for magnet
                 if (player.magnetTimer > 0) {
                     orb.x += orb.vx;
                     orb.y += orb.vy;
@@ -723,10 +744,9 @@
                 if(orb.x < 0 || orb.x > canvas.width) orb.vx *= -1;
                 if(orb.y < 0 || orb.y > canvas.height) orb.vy *= -1;
                 
-                // Magnet Collection (Head only)
                 if (Math.hypot(orb.x - player.x, orb.y - player.y) < 20) {
                     if (player.magnetTimer > 0) {
-                        createExplosion(orb.x, orb.y, 5, '#00f3ff');
+                        createExplosion(orb.x, orb.y, 3, '#00f3ff');
                     }
                 }
             });
@@ -752,25 +772,23 @@
                 else if (en.type === 'dasher') {
                     en.timer--;
                     
-                    if (en.state === 0) { // IDLE / WANDER
+                    if (en.state === 0) { // IDLE 
                         en.x += (Math.random()-0.5);
                         en.y += (Math.random()-0.5);
                         if (en.timer <= 0) {
                             en.state = 1;
-                            en.timer = 60; // Charge time
+                            en.timer = 60; 
                             en.angle = Math.atan2(player.y - en.y, player.x - en.x);
                         }
                     } else if (en.state === 1) { // CHARGE
-                        // Shake effect
                         en.x += (Math.random()-0.5) * 2;
                         en.y += (Math.random()-0.5) * 2;
-                        // Track player slowly
                         let targetAngle = Math.atan2(player.y - en.y, player.x - en.x);
                         en.angle += (targetAngle - en.angle) * 0.05;
                         
                         if (en.timer <= 0) {
                             en.state = 2;
-                            en.timer = 40; // Dash duration
+                            en.timer = 40; 
                         }
                     } else if (en.state === 2) { // DASH
                         let speed = 6 * difficultyMultiplier;
@@ -788,7 +806,6 @@
                         }
                     }
                     
-                    // Bounce
                     if(en.x < 0 || en.x > canvas.width) { en.x = Math.max(0, Math.min(canvas.width, en.x)); en.state = 0; }
                     if(en.y < 0 || en.y > canvas.height) { en.y = Math.max(0, Math.min(canvas.height, en.y)); en.state = 0; }
                 }
@@ -797,12 +814,10 @@
                 const distToHead = Math.hypot(en.x - player.x, en.y - player.y);
                 if (distToHead < en.radius + 5) {
                     if (player.shield) {
-                        // Shield Break
                         player.shield = false;
                         updateStatusUI();
-                        createExplosion(player.x, player.y, 20, '#f1c40f');
+                        createExplosion(player.x, player.y, 15, '#f1c40f');
                         screenShake = 10;
-                        // Push enemy away
                         let ang = Math.atan2(en.y - player.y, en.x - player.x);
                         en.x += Math.cos(ang) * 50;
                         en.y += Math.sin(ang) * 50;
@@ -843,7 +858,6 @@
             shockwaves.push({x: cx, y: cy, r: 1, maxR: 150, alpha: 1});
             screenShake = 5;
 
-            // Inside check
             const isInside = (point, vs) => {
                 let x = point.x, y = point.y;
                 let inside = false;
@@ -857,10 +871,9 @@
             };
 
             let enemiesKilled = 0;
-            // Reverse loop for safe removal
             for (let i = enemies.length - 1; i >= 0; i--) {
                 if (isInside(enemies[i], polygon)) {
-                    createExplosion(enemies[i].x, enemies[i].y, 15, enemies[i].type === 'dasher' ? '#e67e22' : '#ff0055'); // Reduced particles
+                    createExplosion(enemies[i].x, enemies[i].y, 10, enemies[i].type === 'dasher' ? '#e67e22' : '#ff0055'); // Reduced
                     enemies.splice(i, 1);
                     enemiesKilled++;
                     score += 100;
@@ -878,14 +891,13 @@
 
             for (let i = orbs.length - 1; i >= 0; i--) {
                 if (isInside(orbs[i], polygon)) {
-                    createExplosion(orbs[i].x, orbs[i].y, 8, '#00f3ff'); // Reduced
+                    createExplosion(orbs[i].x, orbs[i].y, 5, '#00f3ff'); // Reduced
                     orbs.splice(i, 1);
                     score += 50;
                     player.length += GROWTH_PER_ORB;
                 }
             }
             
-            // Collect powerups via loop too
             for (let i = powerups.length - 1; i >= 0; i--) {
                 if (isInside(powerups[i], polygon)) {
                     let p = powerups[i];
@@ -919,20 +931,19 @@
                 let p = particles[i];
                 p.x += p.vx;
                 p.y += p.vy;
-                p.life -= 0.03; // Die faster
+                p.life -= 0.04; // Die faster
                 if (p.life <= 0) particles.splice(i, 1);
             }
             for (let i = shockwaves.length - 1; i >= 0; i--) {
                 let s = shockwaves[i];
                 s.r += 5;
-                s.alpha -= 0.05; // Fade faster
+                s.alpha -= 0.06; // Fade faster
                 if (s.alpha <= 0) shockwaves.splice(i, 1);
             }
         }
 
         function createExplosion(x, y, count, color) {
-            // Cap particle count
-            const limit = 20;
+            const limit = 12; // Hard cap
             const actualCount = Math.min(count, limit);
             
             for (let i = 0; i < actualCount; i++) {
@@ -952,13 +963,12 @@
         // --- Rendering ---
 
         function drawGrid(offsetX, offsetY) {
-            ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)'; // Slightly brighter since no glow
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
             ctx.lineWidth = 1;
-            const gridSize = 50;
+            const gridSize = 100; // Wider grid for less draw calls
             const w = canvas.width;
             const h = canvas.height;
             
-            // Dynamic shift based on player position (parallax fake)
             const shiftX = -offsetX * 0.1;
             const shiftY = -offsetY * 0.1;
 
@@ -976,11 +986,10 @@
             let dx = (Math.random() - 0.5) * screenShake;
             let dy = (Math.random() - 0.5) * screenShake;
 
-            ctx.fillStyle = '#050505'; // No transparency for better performance, clean clear
+            ctx.fillStyle = '#050505'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Use additive blending for "Neon" look without expensive shadows
-            ctx.globalCompositeOperation = 'lighter';
+            // Removed globalCompositeOperation 'lighter' for performance
 
             drawGrid(player.x, player.y);
 
@@ -1011,7 +1020,7 @@
                 ctx.lineWidth = isBoosting ? 6 : 4;
                 ctx.stroke();
                 
-                // Core (re-draw for brightness)
+                // Core
                 ctx.strokeStyle = '#ffffff';
                 ctx.lineWidth = 2;
                 ctx.stroke();
@@ -1068,10 +1077,9 @@
                     ctx.arc(en.x, en.y, en.radius/2, 0, Math.PI*2);
                     ctx.fill();
                 } else if (en.type === 'dasher') {
-                    // Triangle Shape
                     ctx.save();
                     ctx.translate(en.x, en.y);
-                    if (en.state === 1) ctx.rotate(en.angle + (Math.random()-0.5)*0.2); // Shake
+                    if (en.state === 1) ctx.rotate(en.angle + (Math.random()-0.5)*0.2); 
                     else ctx.rotate(en.angle);
                     
                     ctx.beginPath();
@@ -1081,11 +1089,9 @@
                     ctx.closePath();
                     ctx.fill();
                     
-                    // Eye
-                    if (en.state === 1) ctx.fillStyle = '#fff'; // Warning
+                    if (en.state === 1) ctx.fillStyle = '#fff'; 
                     else ctx.fillStyle = '#000';
                     ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI*2); ctx.fill();
-                    
                     ctx.restore();
                 }
             });
@@ -1102,19 +1108,15 @@
                 ctx.fill();
             });
             
-            // Particles (Optimized: Rects instead of Arcs)
+            // Particles
             particles.forEach(p => {
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
-                // Faster than arc
                 ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
                 ctx.globalAlpha = 1;
             });
 
             ctx.restore();
-            
-            // Reset composite for UI
-            ctx.globalCompositeOperation = 'source-over';
         }
     </script>
 </body>
